@@ -17,7 +17,7 @@ These layouts are my answer to that. The repo is public so I can install them on
 You'll need Herdr installed and opened once, so it has written its settings. Then:
 
 ```sh
-git clone <this repo>
+git clone https://github.com/amr05008/herdr-layouts.git
 cd herdr-layouts
 ./install.sh index
 herdr-app do layout.switch '{"name":"index"}'
