@@ -1,0 +1,76 @@
+{
+  "id": "root",
+  "type": "row",
+  "titlebar": "none",
+  "traffic_lights": [14, 10],
+  "preview": "layouts/index.svg",
+  "theme": { "dark": "index-dark", "light": "index-light" },
+  "ui_font": "Geist",
+  "background": "canvas",
+  "terminal_padding": [14, 12],
+  "divider": { "width": 1, "color": "border" },
+  "children": [
+    {
+      "id": "sidebar",
+      "type": "column",
+      "size": { "px": 232 },
+      "min": 44,
+      "max": 480,
+      "background": "chrome",
+      "resizable": false,
+      "children": [
+        { "id": "sidebar-top", "type": "block", "size": { "px": 32 }, "window_drag": true, "content": { "mod": "index", "props": { "role": "top" } } },
+        { "id": "sidebar-list", "type": "block", "content": { "mod": "index", "props": { "role": "sidebar" } } }
+      ]
+    },
+    {
+      "id": "work",
+      "type": "column",
+      "resizable": false,
+      "children": [
+        { "id": "strip", "type": "block", "size": { "px": 32 }, "window_drag": true, "content": { "mod": "index", "props": { "role": "strip" } } },
+        {
+          "id": "work-body",
+          "type": "row",
+          "divider": { "width": 1, "color": "border" },
+          "children": [
+            {
+              "id": "main",
+              "type": "block",
+              "background": "border",
+              "content": {
+                "tab": "active",
+                "pane": {
+                  "gap": 1,
+                  "radius": 0,
+                  "background": "background",
+                  "lone": false,
+                  "header": { "content": { "mod": "index", "props": { "role": "pane" } }, "height": 22, "position": "top", "reveal": "always" }
+                }
+              }
+            },
+            {
+              "id": "panel",
+              "type": "column",
+              "hidden": true,
+              "size": { "px": 368 },
+              "min": 280,
+              "max": 900,
+              "children": [
+                {
+                  "id": "panel-body",
+                  "type": "stack",
+                  "active": "files",
+                  "children": [
+                    { "id": "files", "type": "block", "content": { "mod": "files" } },
+                    { "id": "changes", "type": "block", "content": { "mod": "changes" } }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "global": {
+    "cmd-t": "tab.new",
+    "cmd-]": "agent.next",
+    "cmd-[": "agent.prev",
+    "cmd-b": "layout.toggle:sidebar"
+  },
+  "terminal": {
+    "cmd-c": "terminal.copy",
+    "alt-left": "send:\u001bb"
+  }
+}

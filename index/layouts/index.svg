@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200" viewBox="0 0 320 200">
+  <rect width="320" height="200" rx="8" fill="#0b1019"/>
+  <path d="M8 0h72v200H8a8 8 0 0 1-8-8V8a8 8 0 0 1 8-8z" fill="#0d1320"/>
+  <rect x="80" y="0" width="1" height="200" fill="#1c2433"/>
+  <circle cx="11" cy="9" r="2.5" fill="#5b6475" opacity="0.5"/>
+  <circle cx="19" cy="9" r="2.5" fill="#5b6475" opacity="0.5"/>
+  <circle cx="27" cy="9" r="2.5" fill="#5b6475" opacity="0.5"/>
+  <rect x="9" y="24" width="30" height="4" rx="2" fill="#60a5fa"/>
+  <rect x="9" y="38" width="22" height="3" rx="1.5" fill="#5b6475"/>
+  <circle cx="12" cy="52" r="2.5" fill="#60a5fa"/>
+  <rect x="19" y="50" width="38" height="4" rx="2" fill="#60a5fa"/>
+  <rect x="19" y="58" width="44" height="3" rx="1.5" fill="#9ca3af" opacity="0.6"/>
+  <circle cx="12" cy="72" r="2.2" fill="none" stroke="#60a5fa" stroke-width="1.2"/>
+  <rect x="19" y="70" width="32" height="4" rx="2" fill="#f3f4f6"/>
+  <rect x="5" y="81" width="71" height="12" rx="3" fill="#172033"/>
+  <circle cx="12" cy="87" r="2" fill="#9ca3af"/>
+  <rect x="19" y="85" width="40" height="4" rx="2" fill="#f3f4f6"/>
+  <rect x="24" y="97" width="1" height="6" fill="#f3f4f6"/>
+  <rect x="28" y="98" width="30" height="3" rx="1.5" fill="#f3f4f6" opacity="0.8"/>
+  <rect x="19" y="112" width="34" height="4" rx="2" fill="#5b6475"/>
+  <rect x="19" y="124" width="28" height="4" rx="2" fill="#5b6475"/>
+  <rect x="9" y="140" width="22" height="3" rx="1.5" fill="#5b6475"/>
+  <rect x="19" y="152" width="36" height="4" rx="2" fill="#5b6475"/>
+  <rect x="19" y="164" width="30" height="4" rx="2" fill="#5b6475"/>
+  <rect x="0" y="186" width="80" height="1" fill="#1c2433"/>
+  <rect x="242" y="9" width="66" height="3" rx="1.5" fill="#5b6475"/>
+  <rect x="94" y="30" width="120" height="3" rx="1.5" fill="#d1d5db" opacity="0.7"/>
+  <rect x="94" y="40" width="160" height="3" rx="1.5" fill="#d1d5db" opacity="0.5"/>
+  <rect x="94" y="50" width="96" height="3" rx="1.5" fill="#d1d5db" opacity="0.5"/>
+  <rect x="94" y="66" width="140" height="3" rx="1.5" fill="#d1d5db" opacity="0.7"/>
+  <rect x="94" y="76" width="70" height="3" rx="1.5" fill="#d1d5db" opacity="0.5"/>
+  <rect x="94" y="92" width="8" height="5" fill="#60a5fa"/>
+</svg>

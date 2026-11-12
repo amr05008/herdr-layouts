@@ -1,0 +1,7 @@
+{
+  "layout:index": {
+    "cmd-j": "index.next-needs-you",
+    "cmd-shift-e": "index.files",
+    "cmd-shift-g": "index.changes"
+  }
+}

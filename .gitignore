@@ -1,0 +1,7 @@
+.superpowers/
+.playwright-mcp/
+.DS_Store
+gpui-kit.d.ts
+jsconfig.json
+node_modules/
+__pycache__/
