@@ -139,11 +139,11 @@ The UI font is Geist (it ships with Herdr). The terminal font is whatever your s
 - **`herdr-app shot` only gets new frames while the window is visible.**
 - **The themes set terminal text to `#d1d5db` and panel text (`colors.foreground`) to `#f3f4f6`.** This build didn't measure whether Herdr applies the panel value to terminal text as well.
 - **To shoot a preview without your real spaces:**
-  1. Start a separate core with `HC_SESSION=demo`.
-  2. Add made-up spaces to it with `hc run --keep --label herdr.space=<name> …` (the space is named after its folder).
-  3. Open a second window with `HC_SESSION=demo HERDR_APP_HOME=/tmp/<demo-home> herdr-app`. Set `"frame.welcomed": "finished"` in that home's `shared.json` first, or the welcome screen covers it.
-  4. Shoot it with `HERDR_APP_HOME=… herdr-app shot`.
-  5. Afterwards, stop the core with `HC_SESSION=demo hc server stop` and delete `~/.local/state/herdr-core/demo`.
+  1. Make a demo home: `mkdir /tmp/<demo-home>`, then write `{"frame.welcomed":"finished"}` to its `shared.json`, or the welcome screen covers the window. After a Herdr update, also set `"presented": ["<version>"]` in its `update-notes.json`, or the update notice covers the corner (`overlay.close` reports ok but doesn't clear it).
+  2. Open the window with `HC_SESSION=demo HERDR_APP_HOME=/tmp/<demo-home> herdr-app`. Then run `HERDR_APP_HOME=… ./install.sh index`, switch to Index with `herdr-app do layout.switch`, and set `"appearance": "dark"` in that home's `settings.json`.
+  3. Only now start the made-up agents with `HC_SESSION=demo hc run --bg --no-parent --label herdr.space=<name> --cwd /tmp/<folder>/<name> -- sh tests/fake-agent.sh …` (the space is named after its folder). Index has to see "working" turn into "done" for a row to read "your turn"; an agent that finished before the window opened reads as quiet.
+  4. New spaces land in no particular order: put them in yours with `space.move {id, index}`. Then shoot with `HERDR_APP_HOME=… herdr-app shot`.
+  5. Afterwards, run `HERDR_APP_HOME=… herdr-app do app.quit` and `HC_SESSION=demo hc server stop`, then delete `~/.local/state/herdr-core/demo` and the demo home.
 - **A finish while the window is closed still lights,** because Index stored the agent as working. But a reply and a finish that both happen while it's closed (from another Herdr client) look like nothing changed, and Index keeps what it had. ⇧⌘J or the next finish puts it right.
 - **The detail line is the terminal title** (for Claude Code, the session's name), not the agent's last message.
 - **An agent someone else prompts** (a channel bot, a shared session) lights up after every turn it takes. ⇧⌘J clears it.
