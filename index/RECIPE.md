@@ -1,6 +1,10 @@
 # Index
 
-A quiet Herdr window built around one question: which agent needs me? The left side is one list of your spaces, grouped by machine, in Herdr's own order. Rows never move on their own. Nothing on screen is colored except the agents that need you: a blue dot means one is waiting on you, a blue ring means one finished while you weren't looking. ⌘J jumps to the next one. Everything else (tab bar, status bar, icons, letter tiles, pane cards) is gone.
+A quiet Herdr window built around one question: which agent needs me? The left side is one list of your spaces, grouped by machine, in Herdr's own order. Rows never move on their own. Nothing on screen is colored except the agents that need you. A row waiting on you is the only filled row in the list:
+- a blue dot and "asks" mean the agent stopped to ask you something;
+- a blue ring and "your turn" mean it finished and hasn't heard back from you. It stays that way until you reply or dismiss it (⇧⌘J); looking at it doesn't clear it.
+
+⌘J jumps to the next one, and the strip above your terminal names it. Everything else (tab bar, status bar, icons, letter tiles, pane cards) is gone.
 
 ![Index](preview.png)
 
@@ -16,18 +20,23 @@ The window has no system title bar. It is one row: the sidebar (232 px, min 44, 
 4. **Space rows**, 26 px tall (40 px with a detail line):
    - a 12 px status-mark column, then the name at 12.5 px;
    - on the right, a 56 px slot (11 px, faint) with the age (`<1m`, `5m`, `1h`, `2d`), or "2 agents" when the space has two or more;
-   - the current space has a `#172033` background, radius 5; other rows get `#121a29` on hover;
-   - a **detail line** (11 px, `#9ca3af`, truncated) shows the agent's terminal title, only when the space is blocked or done. It is skipped when the title is a path, a `user@host`, or just the program's name.
+   - a **lit row** (an agent of its own asks or has its turn) has the accent at 15% as its background (9% on light), radius 5. Its name is full text and semibold, and the right slot says "asks" or "your turn" in the accent, semibold, instead of the age;
+   - a lit row's **detail line** (11 px, `#9ca3af`, truncated) reads "<age> · <title>": how long it has waited, then the agent's terminal title. The title is skipped when it's a path, a `user@host`, just the program's name, or already the row's name;
+   - the current space has the hover color (`#121a29`) as its background, so any lit row outranks it. It's never lit itself: its tab rows carry its waiting agent. Other rows get `#121a29` on hover;
+   - quiet spaces (nothing waiting, nothing working) draw their name and age one step fainter than the faint text: `dim` mixed 35% toward the sidebar (`#404857`).
 5. **The current space expands.**
    - Tab rows (24 px, 12 px text, faint) sit under it. The shown tab is in full text, with a 1.5 × 12 px tick at its left.
-   - A tab split between two or more agents lists them one indent deeper, by program (`claude`, `codex`).
+   - A tab whose agent waits on you is lit like a space row, with the word on the right and its detail line.
+   - A tab split between two or more agents lists them one indent deeper, by program (`claude`, `codex`). Then each agent row is lit on its own, and the tab row isn't.
    - A faint "+ tab" row comes last.
-6. **Blocked sub-agents** (terminals an agent started with `hc run`) appear as an indented row under their space while they're blocked, with their own detail line.
+6. **Sub-agents that ask** (terminals an agent started with `hc run`, while blocked) appear as an indented lit row under their space, with their own detail line. The space row shows the mark but isn't lit, so nothing is lit twice.
 7. **Footer, 32 px**, with a hairline above: "+ New space" on the left and "Settings" on the right, both 11 px and faint.
 
 **Work area:**
 
-- **Top strip, 32 px** (`#0b1019`, you can drag the window by it): the focused terminal's folder and git branch, right-aligned, 11 px, faint ("~/repos/site · main").
+- **Top strip, 32 px** (`#0b1019`, you can drag the window by it), 11 px:
+  - on the left, the agent ⌘J would go to next: its mark, "<space> asks" or "<space> · your turn" (full text, semibold), its title (`#9ca3af`, truncated at 360 px) and the ⌘J label (faint). It's empty when nothing waits or that agent already has focus. Clicking it does what ⌘J does;
+  - on the right, the focused terminal's folder and git branch, faint ("~/repos/site · main"). This is what truncates when space runs out.
 - **The shown tab** fills the rest.
   - A single pane is a bare terminal, with no frame and no label.
   - Split panes are separated by 1 px `#1c2433` lines. Each pane gets a 22 px label: the program name (full text on the focused pane, faint on the others), then its folder, faint.
@@ -53,21 +62,24 @@ The UI font is Geist (it ships with Herdr). The terminal font is whatever your s
 
 **Agent statuses** (the whole visual language):
 
-| Status | Mark | Name |
-|---|---|---|
-| blocked (waiting on you) | 6 px filled accent dot | accent, semibold, plus a detail line |
-| done (finished, not seen yet) | 6 px accent ring, 1.5 px | full text, semibold, plus a detail line |
-| working | 6 px `#9ca3af` dot, opacity pulsing 0.25 ↔ 1 every 1.4 s | full text |
-| idle, or no agent | nothing | faint |
+| Status | Comes from | Mark | Row |
+|---|---|---|---|
+| asks | Herdr's `blocked`, or a sub-agent that's blocked or errored | 6 px filled accent dot | lit, "asks" |
+| your turn | the agent went from working to done or idle, and hasn't worked or been dismissed since | 6 px accent ring, 1.5 px | lit, "your turn" |
+| working | Herdr's `working` | 6 px `#9ca3af` dot, opacity pulsing 0.25 ↔ 1 every 1.4 s | full text |
+| quiet | anything else: dismissed, hasn't finished since Index first saw it, or no agent | nothing | fainter than faint |
 
-- A space shows its most urgent agent. A blocked sub-agent lifts its parent's space to blocked.
-- "N need you" counts the blocked agents, the blocked sub-agents and the done agents.
-- Looking at a done agent makes it idle: the ring goes and the count drops.
+- **What ends "your turn":** the agent works again (you replied), you press ⇧⌘J while it has focus, or it goes away. Looking at it, focusing it and ⌘J landing on it don't. There's no time limit.
+- **An agent Index sees for the first time** starts quiet, unless Herdr reports it `done`, in which case it starts as your turn. A finish that happened while the window was closed still counts: Index remembers the agent was working.
+- **Sub-agents never have a turn.** Their "done" is their parent's news. One that asks lifts its parent's space to asks.
+- **⇧⌘J** clears "your turn" on the focused agent. It does nothing on an agent that asks (it's stuck until you answer) or on anything else. The agent's next finish lights it again.
+- A space shows its most urgent agent: asks, then your turn, then working.
+- "N need you" counts everything that asks or has its turn.
 - **⌘J** jumps to the next one:
-  - blocked agents first (each followed by its blocked sub-agents), then done ones, in list order, wrapping around;
+  - agents that ask first (each followed by its sub-agents that ask), then your-turn ones, in list order, wrapping around;
+  - your turn stays lit when ⌘J lands on it, so the next press moves on;
   - a sub-agent without a pane opens in a peek window;
-  - after a done agent you've just looked at, it carries on with the one after it;
-  - it works with the sidebar hidden, and clicking the needs-you line does the same.
+  - it works with the sidebar hidden, and clicking the needs-you line or the strip's next-up line does the same.
 - **⇧⌘E** opens the right panel on Files and **⇧⌘G** on Changes. Pressing the same key again closes it.
 - **Space row:**
   - click: show the space
@@ -80,7 +92,8 @@ The UI font is Geist (it ships with Herdr). The terminal font is whatever your s
 - **Ages** are the time since that agent last changed state, with done and idle counting as one. They refresh every 30 s.
 - **Under 160 px wide** (drag the sidebar's edge narrower), it becomes a rail:
   - the count at the top;
-  - one mark per space (an idle space gets a faint 4 px dot so there's something to click), with a hairline between machines;
+  - one mark per space (a quiet space gets a faint 4 px dot so there's something to click), with a hairline between machines;
+  - a space waiting on you gets the lit background;
   - the current space highlighted;
   - clicking a mark shows that space.
 - **⌘B** hides the sidebar. The work-area strip then keeps clear of the traffic lights.
@@ -103,11 +116,13 @@ The UI font is Geist (it ships with Herdr). The terminal font is whatever your s
   - `{role: "sidebar"}` is the list
   - `{role: "strip"}` is the work-area strip and owns the key commands
   - the pane header gets `{pane}` from Herdr and draws the pane label
-  - `model.js` holds all the decisions as pure functions (grouping, statuses, ⌘J order, key labels), tested with Node.
-- **`herdr` functions:** `spaces`, `agents`, `terminals`, `machines`, `panes`, `focused`, `keys`, `layout`, `window`, `settings`, `theme`, `home`, `props`, `run`, `openOverlay` (for the shipped `menu`), `setAgentOrder`, `nextCommand`.
+  - `model.js` holds all the decisions as pure functions (grouping, statuses and turns, what each row says, ⌘J order, key labels), tested with Node.
+  - `colors.js` works out the lit background (the accent plus alpha `26` on dark, `17` on light) and the quiet color from the theme, also pure and tested.
+  - `turns.js` keeps the stamps and turns in Herdr's shared store, `shared("index.turns")`. Every copy (sidebar and strip) reads the same record, and setting it redraws them all. It's set only when something changed.
+- **`herdr` functions:** `spaces`, `agents`, `terminals`, `machines`, `panes`, `focused`, `keys`, `layout`, `window`, `settings`, `theme`, `home`, `props`, `run`, `openOverlay` (for the shipped `menu`), `setAgentOrder`, `nextCommand`, `shared`, `setShared`.
 - **Commands:** `space.select`, `space.move`, `space.rename`, `space.new`, `tab.select`, `tab.rename`, `tab.new`, `agent.focus`, `terminal.peek`, `layout.select`, `layout.show`, `layout.hide`, `app.settings`.
 - **`themes/index-dark.json` and `themes/index-light.json`:** terminal colors plus panel color overrides (`chrome`, `canvas`, `border`, `foreground`, `muted`, `dim`, `selected`, `hover`, `accent`, `blocked`, `done`, `working`, `idle`).
-- **`keys.json`:** a `layout:index` section binding `cmd-j` → `index.next-needs-you`, `cmd-shift-e` → `index.files`, `cmd-shift-g` → `index.changes`.
+- **`keys.json`:** a `layout:index` section binding `cmd-j` → `index.next-needs-you`, `cmd-shift-j` → `index.dismiss`, `cmd-shift-e` → `index.files`, `cmd-shift-g` → `index.changes`.
 - No network access, no programs run, no files read.
 
 ## Watch out
@@ -119,7 +134,8 @@ The UI font is Geist (it ships with Herdr). The terminal font is whatever your s
 - **Keys live in a `layout:index` section**, so they only apply while Index shows. A key bound in your `terminal` section wins over them. The installer says so and skips it.
 - **"done" only shows after "working".** An agent that reports `done` straight away reads as idle.
 - **`agent.focus` doesn't move focus to a sub-agent that has no pane.** That's why ⌘J peeks at those.
-- **Ages start at `<1m`** on a fresh install, because Index begins tracking when it first runs.
+- **Ages start at `<1m`** on a fresh install, because Index begins tracking when it first runs. Agents that are idle then start quiet: Index can't know whether they're waiting on you.
+- **`localStorage` is per mod copy.** That's why turns live in `shared("index.turns")`: the strip's ⇧⌘J has to clear what the sidebar shows. Stamps from before turns existed move there once, from the sidebar's `localStorage`, and read as quiet.
 - **`herdr-app shot` only gets new frames while the window is visible.**
 - **The themes set terminal text to `#d1d5db` and panel text (`colors.foreground`) to `#f3f4f6`.** This build didn't measure whether Herdr applies the panel value to terminal text as well.
 - **To shoot a preview without your real spaces:**
@@ -128,7 +144,9 @@ The UI font is Geist (it ships with Herdr). The terminal font is whatever your s
   3. Open a second window with `HC_SESSION=demo HERDR_APP_HOME=/tmp/<demo-home> herdr-app`. Set `"frame.welcomed": "finished"` in that home's `shared.json` first, or the welcome screen covers it.
   4. Shoot it with `HERDR_APP_HOME=… herdr-app shot`.
   5. Afterwards, stop the core with `HC_SESSION=demo hc server stop` and delete `~/.local/state/herdr-core/demo`.
-- **"done" has to happen while the window is open.** An agent that is already done when the window opens reads as seen.
+- **A finish while the window is closed still lights,** because Index stored the agent as working. But a reply and a finish that both happen while it's closed (from another Herdr client) look like nothing changed, and Index keeps what it had. ⇧⌘J or the next finish puts it right.
+- **The detail line is the terminal title** (for Claude Code, the session's name), not the agent's last message.
+- **An agent someone else prompts** (a channel bot, a shared session) lights up after every turn it takes. ⇧⌘J clears it.
 - **To test statuses without real agents,** use `tests/fake-agent.sh working,done "title"`. It prints Herdr's status report (`ESC ] 7501 ; state=… BEL`) and sets the title.
 
 ## Done when
@@ -136,9 +154,11 @@ The UI font is Geist (it ships with Herdr). The terminal font is whatever your s
 - `npm test` passes (model, keys merge, installer).
 - `herdr-app check` passes for `mods/index`. After `layout.switch {"name":"index"}`, `herdr-app status` shows no errors.
 - Every space appears exactly once, grouped by machine, in Herdr's order. There are no icons and no letter tiles.
-- A blocked agent shows a filled accent dot, an accent name and its title, and the count includes it. ⌘J focuses it, also with the sidebar hidden.
-- A done agent shows a ring. After looking at it, the ring goes and the count drops.
-- A blocked `hc run` sub-agent marks its parent's space, appears as a row, and is reachable by ⌘J.
+- An agent that asks shows a lit row with a filled dot, "asks" and "<age> · <title>", and the count includes it. ⌘J focuses it, also with the sidebar hidden, and ⇧⌘J doesn't clear it.
+- An agent that finishes shows a lit row with a ring and "your turn". Looking at it doesn't clear it. Replying (it works again) or ⇧⌘J does, and the count drops at once in the sidebar and the strip.
+- The strip names the next ⌘J target.
+- The current-space highlight is quieter than any lit row.
+- A blocked `hc run` sub-agent marks its parent's space, appears as a lit row, and is reachable by ⌘J.
 - A working agent's row stays one line tall.
 - ⇧⌘E and ⇧⌘G show and hide Files and Changes.
 - The current space lists its tabs, and clicking one switches to it. There's no tab bar.

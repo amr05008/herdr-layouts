@@ -1,24 +1,44 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { targets, nextTarget, keyLabel, roleOf, jumpFrom, jumpCommand, focusedAddress } from "../index/mods/index/model.js";
+import { targets, waiting, nextUp, nextTarget, keyLabel, roleOf, jumpFrom, jumpCommand, focusedAddress } from "../index/mods/index/model.js";
 import { ag, term } from "./fixtures.js";
 
-test("targets: blocked (with blocked subs at their parent) first, then done, list order", () => {
-  const agents = [ag("a1", "s", "t", "working"), ag("a2", "s", "t", "blocked"), ag("a3", "s", "t", "done"), ag("a4", "s", "t", "blocked")];
+test("targets: asks (with blocked subs at their parent) first, then your turn, list order", () => {
+  const agents = [ag("a1", "s", "t", "working"), ag("a2", "s", "t", "blocked"), ag("a3", "s", "t", "idle"), ag("a4", "s", "t", "blocked"), ag("a5", "s", "t", "idle")];
   const terminals = [term("a1", null, "working"), term("k1", "a1", "blocked")];
-  assert.deepEqual(targets({ agents, terminals }), ["k1", "a2", "a4", "a3"]);
+  const changed = { a3: { s: "idle", at: 0, turn: true }, a5: { s: "idle", at: 0, turn: false } };
+  assert.deepEqual(targets({ agents, terminals, changed }), ["k1", "a2", "a4", "a3"]);
+});
+
+test("an agent that has gone is not waiting", () => {
+  assert.deepEqual(targets({ agents: [], terminals: [], changed: { gone: { s: "idle", at: 0, turn: true } } }), []);
+});
+
+test("waiting carries status and space name", () => {
+  const agents = [ag("a1", "s", "t", "working"), ag("a2", "s", "t", "blocked")];
+  const w = waiting({ agents, terminals: [], changed: {} })[0];
+  assert.deepEqual([w.address, w.status, w.space_name], ["a2", "asks", "s"]);
+});
+
+test("nextUp: where ⌘J would go, null when that's the one in focus or nothing waits", () => {
+  const agents = [ag("a2", "s", "t", "blocked"), ag("a3", "s", "t", "idle")];
+  const all = waiting({ agents, terminals: [], changed: { a3: { s: "idle", at: 0, turn: true } } });
+  assert.equal(nextUp(all, "a2", null).address, "a3");
+  assert.equal(nextUp(all, "zz", null).address, "a2");
+  assert.equal(nextUp([all[0]], "a2", null), null);
+  assert.equal(nextUp([], "x", null), null);
 });
 
 test("targets ignores idle, working, done subs; error sub counts", () => {
   const agents = [ag("a1", "s", "t", "idle")];
   const terminals = [term("a1", null, "idle"), term("k1", "a1", "done"), term("k2", "a1", "error")];
-  assert.deepEqual(targets({ agents, terminals }), ["k2"]);
+  assert.deepEqual(targets({ agents, terminals, changed: {} }), ["k2"]);
 });
 
 test("targets does not double-count a kept sub-agent that is also in agents()", () => {
   const agents = [ag("a1", "s", "t", "idle"), ag("k1", "s", "t", "blocked")];
   const terminals = [term("a1", null, "idle"), term("k1", "a1", "blocked")];
-  assert.deepEqual(targets({ agents, terminals }), ["k1"]);
+  assert.deepEqual(targets({ agents, terminals, changed: {} }), ["k1"]);
 });
 
 test("nextTarget: empty, unknown current, wrap, middle, remote address", () => {
@@ -71,7 +91,7 @@ test("nextTarget moves on to what came after a target that has since left the li
 test("a kept sub-agent's done counts as idle; its blocked still counts", () => {
   const agents = [ag("a1", "s", "t", "idle"), ag("k1", "s", "t", "done"), ag("k2", "s", "t", "blocked")];
   const terminals = [term("a1", null, "idle"), term("k1", "a1", "done"), term("k2", "a1", "blocked")];
-  assert.deepEqual(targets({ agents, terminals }), ["k2"]);
+  assert.deepEqual(targets({ agents, terminals, changed: {} }), ["k2"]);
 });
 
 test("focusedAddress prefers the focused terminal over the agent-block choice", () => {

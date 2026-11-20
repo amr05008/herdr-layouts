@@ -36,7 +36,7 @@ run "$H" "$REPO/install.sh" index
 for f in layouts/index.json mods/index/main.js mods/index/model.js themes/index-dark.json themes/index-light.json; do
   [ -f "$H/$f" ] || fail install_fresh "missing $f"
 done
-python3 -c 'import json,sys; k=json.load(open(sys.argv[1])); assert k["layout:index"]["cmd-j"]=="index.next-needs-you"; assert k["global"]["cmd-t"]=="tab.new"' "$H/keys.json" \
+python3 -c 'import json,sys; k=json.load(open(sys.argv[1])); assert k["layout:index"]["cmd-j"]=="index.next-needs-you"; assert k["layout:index"]["cmd-shift-j"]=="index.dismiss"; assert k["global"]["cmd-t"]=="tab.new"' "$H/keys.json" \
   || fail install_fresh "keys not merged"
 cmp -s "$H/layouts/main.json" "$TMP/fresh.before/layouts/main.json" || fail install_fresh "touched layouts/main.json"
 cmp -s "$H/mods/other/main.js" "$TMP/fresh.before/mods/other/main.js" || fail install_fresh "touched mods/other"

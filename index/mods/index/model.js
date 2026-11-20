@@ -3,10 +3,12 @@
 // (tests/*.test.js). duration(), the title filter in telling() and track()
 // follow Herdr's shipped `agents` mod (Apache-2.0).
 
-export const RANK = { blocked: 4, done: 3, working: 2, idle: 1 };
+// Index's statuses: asks (Herdr's blocked), turn (finished, not yet answered
+// or dismissed), working, quiet (anything else). WORDS is what a lit row says.
+export const RANK = { asks: 4, turn: 3, working: 2, quiet: 1 };
+export const WORDS = { asks: "asks", turn: "your turn" };
 const rank = (s) => RANK[s] ?? 0;
 const higher = (a, b) => (rank(b) > rank(a) ? b : a);
-const NEEDS = new Set(["blocked", "done"]);
 const MONTH = 30 * 86400000;
 
 export function duration(ms) {
@@ -29,26 +31,81 @@ export function telling(title, program) {
   return live;
 }
 
-// A sub-agent's status: an error needs you; its "done" is its parent's news.
+// A sub-agent's status: an error or a question needs you; its "done" is its
+// parent's news, so a sub-agent never has a turn of its own.
 export function kidStatus(k, listed) {
   const s = listed?.get(k.address) ?? k.status;
-  return s === "error" ? "blocked" : s === "done" ? "idle" : s;
+  return s === "error" || s === "blocked" ? "asks" : s === "working" ? "working" : "quiet";
 }
 
-// Stamps agents whose state changed (done and idle count as one).
-// Mutates `changed`; returns whether anything did.
+// Stamps agents whose state changed (done and idle count as one) and keeps
+// each one's turn: an agent that finished needs you until it works again
+// (you replied) or you dismiss it. Looking at it doesn't end the turn.
+// Stamp = { s: "working" | "blocked" | "idle", at, turn } (old stamps lack
+// `turn`: quiet). Mutates `changed`; returns whether anything did.
 export function track(changed, agents, now) {
   let dirty = false;
   for (const a of agents) {
     const s = a.status === "done" ? "idle" : a.status;
-    if (changed[a.address]?.s === s) continue;
-    changed[a.address] = { s, at: now };
+    const prev = changed[a.address];
+    // First sight: `fresh` (no history yet), so an older stamp may replace it (mergeLegacy).
+    if (!prev) changed[a.address] = { s, at: now, turn: a.status === "done", fresh: true };
+    else if (prev.s !== s) changed[a.address] = { s, at: now, turn: s === "idle" };
+    // A finish the stamps missed (it worked between two looks): Herdr still says
+    // done. Not the finish you just dismissed, which Herdr may still call done.
+    else if (a.status === "done" && !prev.turn && !prev.dismissed) changed[a.address] = { s, at: now, turn: true };
+    else continue;
     dirty = true;
   }
   if (!dirty) return false;
   const listed = new Set(agents.map((a) => a.address));
   for (const [k, c] of Object.entries(changed)) if (!listed.has(k) && now - c.at > MONTH) delete changed[k];
   return true;
+}
+
+// The saved record as a plain object of stamps, whatever was stored: a wrong
+// shape would make track() rediscover the same agents on every render and
+// write forever. Drops entries that aren't stamps.
+export function asRecord(v) {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return {};
+  const out = {};
+  for (const [k, st] of Object.entries(v)) {
+    if (st && typeof st === "object" && !Array.isArray(st) && typeof st.s === "string" && typeof st.at === "number") out[k] = st;
+  }
+  return out;
+}
+
+// Folds the sidebar's old per-copy stamps into the shared record. An old
+// stamp replaces only a missing or fresh one (first sight, nothing since), so
+// a finish the old stamp proves (working, now idle) still lights, and no real
+// turn or dismissal is lost whichever copy started first.
+export function mergeLegacy(record, legacy) {
+  const out = { ...record };
+  let changed = false;
+  for (const [k, st] of Object.entries(asRecord(legacy))) {
+    if (out[k] && !out[k].fresh) continue;
+    out[k] = { s: st.s, at: st.at };
+    changed = true;
+  }
+  return { record: out, changed };
+}
+
+// ⇧⌘J: ends the agent's turn without a reply. Only a turn: an agent that
+// asks is stuck until you answer it. Returns whether it did anything.
+export function dismiss(changed, address) {
+  const st = address == null ? null : changed[address];
+  if (!st?.turn) return false;
+  st.turn = false;
+  st.dismissed = true; // until it changes state again: this finish is handled
+  delete st.fresh;
+  return true;
+}
+
+// An agent's own Index status: asks, turn, working or quiet.
+export function ownStatus(a, changed) {
+  if (a.status === "blocked") return "asks";
+  if (a.status === "working") return "working";
+  return changed?.[a.address]?.turn ? "turn" : "quiet";
 }
 
 // Live sub-agents below `addr`, depth first. A kept one (in agents()) is
@@ -61,9 +118,9 @@ function subsOf(all, addr, listed) {
 
 // Every agent in list order, with the status Index uses for it and its
 // unlisted sub-agents. A kept sub-agent (one with a pane, so in agents())
-// is still a sub-agent: its "done" counts as idle (spec), and it isn't
-// one of its space's own agents.
-function entries(agents, terminals) {
+// is still a sub-agent: it never has a turn (spec), and it isn't one of
+// its space's own agents.
+function entries(agents, terminals, changed) {
   const listed = new Map(agents.map((a) => [a.address, a.status]));
   const parentOf = new Map(terminals.map((t) => [t.address, t.parent]));
   return agents.map((a) => {
@@ -71,37 +128,30 @@ function entries(agents, terminals) {
     return {
       agent: a,
       kept,
-      status: kept ? kidStatus(a, null) : a.status,
-      subs: subsOf(terminals, a.address, listed).map((k) => ({ term: k, status: kidStatus(k, listed), tab: a.tab, space: a.space })),
+      status: kept ? kidStatus(a, null) : ownStatus(a, changed),
+      subs: subsOf(terminals, a.address, listed).map((k) => ({ term: k, status: kidStatus(k, listed), tab: a.tab, space: a.space, space_name: a.space_name })),
     };
   });
 }
 
-// Who needs you, in ⌘J order: blocked agents, each followed by its blocked
-// sub-agents, then done agents; list order within each.
-function needs(es) {
-  const blocked = [], done = [];
+// Who needs you, in ⌘J order: agents that ask, each followed by its
+// sub-agents that ask, then agents whose turn it is; list order within each.
+function collect(es) {
+  const asks = [], turn = [];
   for (const { agent: a, status, subs } of es) {
-    const own = { address: a.address, title: a.title, program: a.program, space: a.space, tab: a.tab };
-    if (status === "blocked") blocked.push(own);
+    const own = { address: a.address, status, title: a.title, program: a.program, space: a.space, space_name: a.space_name, tab: a.tab };
+    if (status === "asks") asks.push(own);
     for (const s of subs) {
-      if (s.status === "blocked") blocked.push({ address: s.term.address, title: s.term.title, program: s.term.program, space: s.space, tab: s.tab, sub: true });
+      if (s.status === "asks") asks.push({ address: s.term.address, status: "asks", title: s.term.title, program: s.term.program, space: s.space, space_name: s.space_name, tab: s.tab, sub: true });
     }
-    if (status === "done") done.push(own);
+    if (status === "turn") turn.push(own);
   }
-  return [...blocked, ...done];
+  return [...asks, ...turn];
 }
 
-const subRow = (s) => ({
-  address: s.term.address,
-  label: s.term.name ?? s.term.program?.name ?? s.term.address,
-  status: s.status,
-  detail: telling(s.term.title, s.term.program),
-});
-
 const mostUrgent = (es) => es.reduce((best, e) => (!best || rank(e.status) > rank(best.status) ? e : best), null)?.agent;
-// A row's status: its most urgent agent (sub-agents as Index counts them), lifted by blocked sub-agents.
-const statusOf = (es, blockedSubs) => es.reduce((st, e) => higher(st, e.status), blockedSubs.length ? "blocked" : null);
+// A row's status: its most urgent agent (sub-agents as Index counts them), lifted by sub-agents that ask.
+const statusOf = (es, askingSubs) => es.reduce((st, e) => higher(st, e.status), askingSubs.length ? "asks" : null);
 
 // Stock's tab label: the agent's title for an unnamed tab, else its name.
 function tabLabel(tab, lead) {
@@ -109,27 +159,55 @@ function tabLabel(tab, lead) {
   return (tab.name === lead?.program?.name || !tab.named) && live ? live : tab.name;
 }
 
+// A row is lit only when it belongs to the waiting agent itself, so nothing
+// is lit twice: a non-current space with a waiting agent of its own, a tab
+// with one, an agent in a split tab, a sub-agent that asks. A lit row says
+// why on the right and "<age> · <title>" below; the title is dropped when it
+// says nothing or is already the row's name.
 export function buildGroups({ spaces, agents, terminals, machines, changed, now }) {
-  const es = entries(agents, terminals);
-  const need = needs(es);
+  const es = entries(agents, terminals, changed);
+  const need = collect(es);
   const own = (e) => !e.kept;
-  const detailOf = (status, n) => (NEEDS.has(status) && n ? telling(n.title, n.program) : null);
+  const nameOf = new Map(terminals.filter((t) => t.name).map((t) => [t.address, t.name]));
+  const ageOf = (address) => (changed?.[address]?.at != null ? duration(now - changed[address].at) : null);
+  function detailFor(n, name) {
+    const t = telling(n.title, n.program);
+    const parts = [ageOf(n.address), t !== name ? t : null].filter(Boolean);
+    return parts.length ? parts.join(" · ") : null;
+  }
+  const line = (address, label, status, n) => ({
+    address, label, status, lit: Boolean(n), right: n ? WORDS[n.status] : "", detail: n ? detailFor(n, label) : null,
+  });
+  const subRow = (s) => line(
+    s.term.address,
+    s.term.name ?? s.term.program?.name ?? s.term.address,
+    s.status,
+    s.status === "asks" ? { address: s.term.address, status: "asks", title: s.term.title, program: s.term.program } : null,
+  );
 
-  function tabRow(t, mine, blockedSubs) {
+  function tabRow(t, mine, askingSubs) {
     const tabbed = mine.filter((e) => e.agent.tab === t.id);
     const inTab = tabbed.filter(own);
-    const subs = blockedSubs.filter((s) => s.tab === t.id);
-    const status = statusOf(tabbed, subs);
+    const subs = askingSubs.filter((s) => s.tab === t.id);
     const name = tabLabel(t, inTab[0]?.agent);
-    const detail = detailOf(status, need.find((n) => n.tab === t.id && !n.sub));
+    const lead = inTab.length < 2 ? need.find((n) => n.tab === t.id && !n.sub) : null;
     return {
       id: t.id,
       name,
       active: t.active,
-      status,
-      detail: detail === name ? null : detail,
+      status: statusOf(tabbed, subs),
+      lit: Boolean(lead),
+      right: lead ? WORDS[lead.status] : "",
+      detail: lead ? detailFor(lead, name) : null,
+      // A split tab lists its own agents, then any kept sub-agent that asks
+      // (it has a pane, so it isn't among the unlisted subs below).
       agents: inTab.length >= 2
-        ? inTab.map(({ agent: a, status: st }) => ({ address: a.address, label: a.program?.key ?? "agent", status: st, detail: detailOf(st, a) }))
+        ? [
+          ...inTab.map(({ agent: a, status: st }) => line(a.address, a.program?.key ?? "agent", st, need.find((n) => n.address === a.address && !n.sub))),
+          ...tabbed.filter((e) => e.kept && e.status === "asks").map(({ agent: a }) => line(
+            a.address, nameOf.get(a.address) ?? a.program?.key ?? "agent", "asks", need.find((n) => n.address === a.address),
+          )),
+        ]
         : [],
       subs: subs.map(subRow),
     };
@@ -138,24 +216,21 @@ export function buildGroups({ spaces, agents, terminals, machines, changed, now 
   function spaceRow(s) {
     const mine = es.filter((e) => e.agent.space === s.id);
     const ownAgents = mine.filter(own);
-    const blockedSubs = mine.flatMap((e) => e.subs.filter((x) => x.status === "blocked"));
-    const status = statusOf(mine, blockedSubs);
-    const lead = mostUrgent(ownAgents);
-    const at = lead ? changed[lead.address]?.at : undefined;
-    const right = ownAgents.length >= 2 ? `${ownAgents.length} agents` : at != null ? duration(now - at) : "";
-    const tabs = s.active ? s.tabs.map((t) => tabRow(t, mine, blockedSubs)) : [];
-    // A sub-agent shows its own text on its own row below, so only the space's own agents count here.
-    const detail = detailOf(status, need.find((n) => n.space === s.id && !n.sub));
+    const askingSubs = mine.flatMap((e) => e.subs.filter((x) => x.status === "asks"));
+    // The current space's tab rows carry its waiting agent.
+    const lead = s.active ? null : need.find((n) => n.space === s.id && !n.sub);
+    const urgent = mostUrgent(ownAgents);
+    const at = urgent ? changed?.[urgent.address]?.at : undefined;
     return {
       id: s.id,
       name: s.name,
       current: s.active,
-      status,
-      // The current space's tab rows may already say it.
-      detail: tabs.some((t) => t.name === detail || t.detail === detail) ? null : detail,
-      right,
-      subs: s.active ? [] : blockedSubs.map(subRow),
-      tabs,
+      status: statusOf(mine, askingSubs),
+      lit: Boolean(lead),
+      right: lead ? WORDS[lead.status] : ownAgents.length >= 2 ? `${ownAgents.length} agents` : at != null ? duration(now - at) : "",
+      detail: lead ? detailFor(lead, s.name) : null,
+      subs: s.active ? [] : askingSubs.map(subRow),
+      tabs: s.active ? s.tabs.map((t) => tabRow(t, mine, askingSubs)) : [],
     };
   }
 
@@ -177,9 +252,22 @@ export function buildGroups({ spaces, agents, terminals, machines, changed, now 
   });
 }
 
-// Where ⌘J goes, in order (see needs()). "N need you" is its length.
-export function targets({ agents, terminals }) {
-  return needs(entries(agents, terminals)).map((n) => n.address);
+// Who needs you, in ⌘J order (see collect()): { address, status, title,
+// program, space, space_name, tab, sub? }. "N need you" is its length.
+export function waiting({ agents, terminals, changed }) {
+  return collect(entries(agents, terminals, changed));
+}
+
+// Where ⌘J goes, in order.
+export function targets(x) {
+  return waiting(x).map((w) => w.address);
+}
+
+// The one ⌘J would go to next (what the strip names), or null when nothing
+// waits or it's the one you're on. memory as for jumpFrom().
+export function nextUp(all, current, memory) {
+  const to = nextTarget(all.map((w) => w.address), jumpFrom(memory, current), memory?.after);
+  return to && to !== current ? all.find((w) => w.address === to) : null;
 }
 
 // The target after `current`, wrapping. When `current` has left the list

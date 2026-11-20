@@ -8,7 +8,7 @@ These layouts are my answer to that. The repo is public so I can install them on
 
 | Layout | What it is |
 |---|---|
-| [Index](index/RECIPE.md) | One quiet list of spaces, grouped by machine. The only color on screen means "this agent needs you", and ⌘J jumps to it. |
+| [Index](index/RECIPE.md) | One quiet list of spaces, grouped by machine. The only color on screen means "this agent needs you": it asked you something, or it finished and is waiting for your reply. ⌘J jumps to it. |
 
 ![Index](index/preview.png)
 
@@ -40,6 +40,7 @@ These only apply while Index is showing.
 | Key | What it does |
 |---|---|
 | ⌘J | Jump to the next agent that needs you |
+| ⇧⌘J | Clear "your turn" on the agent you're on, when it needs no reply |
 | ⇧⌘E | Show or hide Files |
 | ⇧⌘G | Show or hide Changes |
 
