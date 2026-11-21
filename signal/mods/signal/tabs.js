@@ -5,7 +5,7 @@
 
 import { div } from "gpui-kit";
 import { h_flex, ScrollHandle } from "gpui-base";
-import { spaces, agents, terminals, machines, run, openOverlay, theme, window, layout, settings } from "herdr";
+import { spaces, agents, terminals, machines, panes, run, openOverlay, theme, window, layout, settings } from "herdr";
 import { buildGroups } from "./model.js";
 import { observe } from "./turns.js";
 import { wash } from "./colors.js";
@@ -38,6 +38,16 @@ export function render(view) {
     cx.notify();
   };
 
+  // A tab nobody named, whose agent's title says nothing, would read as its
+  // number ("1"): show its program instead ("zsh"), as Herdr's own tab bar does.
+  const all = panes();
+  const nameOf = (r) => {
+    const tab = space?.tabs.find((x) => x.id === r.id);
+    if (!tab || tab.named || r.name !== tab.name) return r.name;
+    const lead = all.find((p) => p.tab === r.id && p.program?.agent) ?? all.find((p) => p.tab === r.id);
+    return lead?.program?.name ?? "Terminal";
+  };
+
   const item = (r, i) => {
     const waits = WAITS.has(r.status);
     return h_flex().id(`tab-${r.id}`).relative().h(30).px(11).gap(8).flex_none().items_center().rounded(6).overflow_hidden().text_size(13)
@@ -64,7 +74,7 @@ export function render(view) {
         openOverlay({ mod: "menu", kind: "popup", width: 200, props: { tab: "tab", target: { id: r.id, space: space.id } } });
       })
       .child(div().flex_none().font_family("Geist Mono").text_size(11).text_color(t.dim).child(String(i + 1).padStart(2, "0")))
-      .child(div().max_w(220).truncate().child(r.name))
+      .child(div().max_w(220).truncate().child(nameOf(r)))
       .when(Boolean(r.status) && r.status !== "quiet", (el) => el.child(block(t, r.status)));
   };
 

@@ -31,7 +31,7 @@ The window has no system title bar. It is one row: the sidebar (280 px, min 44, 
 
 **Tab bar, 40 px** (`#0d1320`, hairline below, you can drag the window by it):
 
-- one tab per tab of the current space, 30 px tall, radius 6, 4 px apart: a two-digit number ("01", Geist Mono 11 px, `#5b6475`), the name (13 px, truncated at 220 px), then the status block (none for an idle tab);
+- one tab per tab of the current space, 30 px tall, radius 6, 4 px apart: a two-digit number ("01", Geist Mono 11 px, `#5b6475`), the name (13 px, truncated at 220 px), then the status block (none for an idle tab). The name is the one you gave the tab, else its agent's title, else its program ("zsh");
 - the shown tab is `#0b1019` with a 2 px `#f3f4f6` line across its top, semibold;
 - a waiting tab that isn't shown is filled amber at 18%, semibold;
 - other tabs are `#1f2a3d` with `#9ca3af` text;
