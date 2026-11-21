@@ -21,7 +21,7 @@ run() { # run <home> <args...>  → sets rc, output in $TMP/out
 
 # install_lists
 run "$TMP/none" "$REPO/install.sh"
-[ "$rc" -eq 0 ] && grep -q '^index$' "$TMP/out" || fail install_lists "rc=$rc $(cat "$TMP/out")"
+[ "$rc" -eq 0 ] && grep -q '^index$' "$TMP/out" && grep -q '^signal$' "$TMP/out" || fail install_lists "rc=$rc $(cat "$TMP/out")"
 ok install_lists
 
 # install_unknown
@@ -41,6 +41,19 @@ python3 -c 'import json,sys; k=json.load(open(sys.argv[1])); assert k["layout:in
 cmp -s "$H/layouts/main.json" "$TMP/fresh.before/layouts/main.json" || fail install_fresh "touched layouts/main.json"
 cmp -s "$H/mods/other/main.js" "$TMP/fresh.before/mods/other/main.js" || fail install_fresh "touched mods/other"
 ok install_fresh
+
+# install_signal (a second layout lands beside the first and leaves it alone)
+cp -R "$H" "$TMP/signal.before"
+run "$H" "$REPO/install.sh" signal
+[ "$rc" -eq 0 ] || fail install_signal "rc=$rc $(cat "$TMP/out")"
+for f in layouts/signal.json mods/signal/main.js mods/signal/model.js themes/signal-dark.json themes/signal-light.json; do
+  [ -f "$H/$f" ] || fail install_signal "missing $f"
+done
+python3 -c 'import json,sys; k=json.load(open(sys.argv[1])); assert k["layout:signal"]["cmd-j"]=="signal.next-needs-you"; assert k["layout:index"]["cmd-j"]=="index.next-needs-you"; assert k["global"]["cmd-t"]=="tab.new"' "$H/keys.json" \
+  || fail install_signal "keys not merged"
+diff -r "$H/mods/index" "$TMP/signal.before/mods/index" >/dev/null && cmp -s "$H/layouts/index.json" "$TMP/signal.before/layouts/index.json" \
+  || fail install_signal "touched Index"
+ok install_signal
 
 # install_rerun
 cp "$H/keys.json" "$TMP/keys.before"; baks=$(ls "$H" | grep -c '^keys.json.bak-' || true)

@@ -1,0 +1,8 @@
+{
+  "layout:signal": {
+    "cmd-j": "signal.next-needs-you",
+    "cmd-shift-j": "signal.dismiss",
+    "cmd-shift-e": "signal.files",
+    "cmd-shift-g": "signal.changes"
+  }
+}

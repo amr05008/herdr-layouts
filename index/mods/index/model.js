@@ -108,6 +108,14 @@ export function ownStatus(a, changed) {
   return changed?.[a.address]?.turn ? "turn" : "quiet";
 }
 
+// The status to draw for one listed agent, wherever it's drawn (a pane
+// label included): a kept sub-agent (it has a parent) follows kidStatus, so
+// its finish never reads as a turn; any other agent follows ownStatus.
+export function agentStatus(a, terminals, changed) {
+  const kept = terminals.some((t) => t.address === a.address && t.parent);
+  return kept ? kidStatus(a, null) : ownStatus(a, changed);
+}
+
 // Live sub-agents below `addr`, depth first. A kept one (in agents()) is
 // walked as an agent in its own right, so it and its children are left out.
 function subsOf(all, addr, listed) {
@@ -128,7 +136,7 @@ function entries(agents, terminals, changed) {
     return {
       agent: a,
       kept,
-      status: kept ? kidStatus(a, null) : ownStatus(a, changed),
+      status: agentStatus(a, terminals, changed),
       subs: subsOf(terminals, a.address, listed).map((k) => ({ term: k, status: kidStatus(k, listed), tab: a.tab, space: a.space, space_name: a.space_name })),
     };
   });
@@ -164,7 +172,11 @@ function tabLabel(tab, lead) {
 // with one, an agent in a split tab, a sub-agent that asks. A lit row says
 // why on the right and "<age> · <title>" below; the title is dropped when it
 // says nothing or is already the row's name.
-export function buildGroups({ spaces, agents, terminals, machines, changed, now }) {
+// `flat` (Signal: the tabs live in a tab bar) treats the current space like
+// any other: its row may be lit, it lists its asking sub-agents and no tabs,
+// and every row also says how many agents it has, whether one still works
+// behind a waiting one, how many tabs, and its age.
+export function buildGroups({ spaces, agents, terminals, machines, changed, now, flat = false }) {
   const es = entries(agents, terminals, changed);
   const need = collect(es);
   const own = (e) => !e.kept;
@@ -218,19 +230,27 @@ export function buildGroups({ spaces, agents, terminals, machines, changed, now 
     const ownAgents = mine.filter(own);
     const askingSubs = mine.flatMap((e) => e.subs.filter((x) => x.status === "asks"));
     // The current space's tab rows carry its waiting agent.
-    const lead = s.active ? null : need.find((n) => n.space === s.id && !n.sub);
+    const expanded = s.active && !flat;
+    const lead = expanded ? null : need.find((n) => n.space === s.id && !n.sub);
     const urgent = mostUrgent(ownAgents);
     const at = urgent ? changed?.[urgent.address]?.at : undefined;
+    const status = statusOf(mine, askingSubs);
     return {
       id: s.id,
       name: s.name,
       current: s.active,
-      status: statusOf(mine, askingSubs),
+      status,
       lit: Boolean(lead),
       right: lead ? WORDS[lead.status] : ownAgents.length >= 2 ? `${ownAgents.length} agents` : at != null ? duration(now - at) : "",
       detail: lead ? detailFor(lead, s.name) : null,
-      subs: s.active ? [] : askingSubs.map(subRow),
-      tabs: s.active ? s.tabs.map((t) => tabRow(t, mine, askingSubs)) : [],
+      subs: expanded ? [] : askingSubs.map(subRow),
+      tabs: expanded ? s.tabs.map((t) => tabRow(t, mine, askingSubs)) : [],
+      ...(flat ? {
+        agents: ownAgents.length,
+        alsoWorking: rank(status) > RANK.working && ownAgents.some((e) => e.status === "working"),
+        tabCount: s.tabs.length,
+        age: at != null ? duration(now - at) : "",
+      } : {}),
     };
   }
 
@@ -256,6 +276,18 @@ export function buildGroups({ spaces, agents, terminals, machines, changed, now 
 // program, space, space_name, tab, sub? }. "N need you" is its length.
 export function waiting({ agents, terminals, changed }) {
   return collect(entries(agents, terminals, changed));
+}
+
+// Signal's three counters. `need` is the ⌘J count (asking sub-agents
+// included); working and idle count each space's own agents that don't wait.
+export function tally(x) {
+  const es = entries(x.agents, x.terminals, x.changed);
+  const own = es.filter((e) => !e.kept);
+  return {
+    need: collect(es).length,
+    working: own.filter((e) => e.status === "working").length,
+    idle: own.filter((e) => e.status === "quiet").length,
+  };
 }
 
 // Where ⌘J goes, in order.
@@ -305,9 +337,9 @@ const MAC_MODS = [["ctrl", "⌃"], ["alt", "⌥"], ["shift", "⇧"], ["cmd", "�
 const cap = (s) => (s.length === 1 ? s.toUpperCase() : s[0].toUpperCase() + s.slice(1));
 
 // The key bound to `action`, as people read it ("⇧⌘E"); null when unbound.
-// Index's own section wins over global.
-export function keyLabel(keys, action, mac) {
-  const k = keys.find((x) => x.section === "layout:index" && x.action === action)
+// The layout's own section wins over global.
+export function keyLabel(keys, action, mac, section = "layout:index") {
+  const k = keys.find((x) => x.section === section && x.action === action)
     ?? keys.find((x) => x.section === "global" && x.action === action);
   if (!k) return null;
   const [, mods = "", key] = /^((?:(?:cmd|ctrl|alt|shift|fn)-)*)(.+)$/.exec(k.keys) ?? [];
@@ -319,5 +351,5 @@ export function keyLabel(keys, action, mac) {
 // Which part of the window this copy draws: a pane header gets `pane` props.
 export function roleOf(p) {
   if (p?.pane) return "pane";
-  return p?.role === "strip" || p?.role === "top" ? p.role : "sidebar";
+  return ["strip", "top", "tabs", "bar"].includes(p?.role) ? p.role : "sidebar";
 }
